@@ -122,6 +122,13 @@ class AppOptions {
      * @type {typeof ResourceHandler[]}
      */
     resourceHandlers = [];
+    
+    /**
+     * Use fixedUpdate calls with a fixed step for physics calculations
+     * 
+     * @type {boolean}Add commentMore actions
+     */
+    useFixedTimeForPhysics = false;
 }
 
 export { AppOptions };

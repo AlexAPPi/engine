@@ -189,6 +189,9 @@ class AppBase extends EventHandler {
     /** @ignore */
     _time = 0;
 
+    /** @ignore */
+    _fixedTimeDebt = 0;
+
     /**
      * Set this to false if you want to run without using bundles. We set it to true only if
      * TextDecoder is available because we currently rely on it for untarring.
@@ -226,6 +229,24 @@ class AppBase extends EventHandler {
      * this.app.maxDeltaTime = 0.2;
      */
     maxDeltaTime = 0.1; // Maximum delta is 0.1s or 10 fps.
+
+    /**
+     * A frame rate independent interval that dictates when physics calculations and fixedUpdate events are performed. Defaults to 0.02
+     * 
+     * @type {number}
+     * @exampleAdd commentMore actions
+     * this.app.fixedTimeStep = 0.02; // (1 / 50) fixedUpdate calls 50 times per second
+     */
+    fixedTimeStep = 1 / 50;
+
+    /**
+     * Use fixedUpdate calls with a fixed step for physics calculations
+     * 
+     * @type {boolean}
+     * @example
+     * this.app.useFixedTimeForPhysics = true;
+     */
+    useFixedTimeForPhysics = false;
 
     /**
      * The total number of frames the application has updated since start() was called.
@@ -481,8 +502,10 @@ class AppBase extends EventHandler {
     init(appOptions) {
         const {
             assetPrefix, batchManager, componentSystems, elementInput, gamepads, graphicsDevice, keyboard,
-            lightmapper, mouse, resourceHandlers, scriptsOrder, scriptPrefix, soundManager, touch, xr
+            lightmapper, mouse, resourceHandlers, scriptsOrder, scriptPrefix, soundManager, touch, xr, useFixedTimeForPhysics
         } = appOptions;
+
+        this.useFixedTimeForPhysics = !!useFixedTimeForPhysics;
 
         Debug.assert(graphicsDevice, 'The application cannot be created without a valid GraphicsDevice');
         this.graphicsDevice = graphicsDevice;
@@ -1018,6 +1041,31 @@ class AppBase extends EventHandler {
         // #if _PROFILER
         this.stats.frame.updateStart = now();
         // #endif
+
+        if (this.useFixedTimeForPhysics) {
+
+            this._fixedTimeDebt += dt;
+
+            const fixedTimeStep = this.fixedTimeStep;
+            const numSimulationSubSteps = Math.floor(this._fixedTimeDebt / fixedTimeStep);
+
+            this._fixedTimeDebt -= numSimulationSubSteps * fixedTimeStep;
+
+            for (let i = 0; i < numSimulationSubSteps; i++) {
+
+                this.systems.fire('fixedUpdate', fixedTimeStep);
+                this.fire('fixedUpdate', fixedTimeStep);
+
+                this.systems.fire('physics-fixed-update', fixedTimeStep);
+                this.fire('physics-fixed-update', fixedTimeStep);
+            }
+
+            this.systems.fire('physics-update', dt);
+            this.fire('physics-update', dt);
+        }
+        else {
+            this._fixedTimeDebt = 0;
+        }
 
         this.systems.fire(this._inTools ? 'toolsUpdate' : 'update', dt);
         this.systems.fire('animationUpdate', dt);
