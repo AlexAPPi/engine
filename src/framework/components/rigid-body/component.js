@@ -14,8 +14,6 @@ import {
  */
 
 // Shared math variable to avoid excessive allocation
-let _ammoTransform;
-let _ammoVec1, _ammoVec2, _ammoQuat;
 const _quat1 = new Quat();
 const _quat2 = new Quat();
 const _vec3 = new Vec3();
@@ -66,6 +64,7 @@ const _vec3 = new Vec3();
  * @category Physics
  */
 class RigidBodyComponent extends Component {
+
     /**
      * Fired when a contact occurs between two rigid bodies. The handler is passed a
      * {@link ContactResult} object containing details of the contact between the two rigid bodies.
@@ -175,25 +174,10 @@ class RigidBodyComponent extends Component {
 
     /** @ignore */
     static onLibraryLoaded() {
-        // Lazily create shared variable
-        if (typeof Ammo !== 'undefined') {
-            _ammoTransform = new Ammo.btTransform();
-            _ammoVec1 = new Ammo.btVector3();
-            _ammoVec2 = new Ammo.btVector3();
-            _ammoQuat = new Ammo.btQuaternion();
-        }
     }
 
     /** @ignore */
     static onAppDestroy() {
-        Ammo.destroy(_ammoTransform);
-        Ammo.destroy(_ammoVec1);
-        Ammo.destroy(_ammoVec2);
-        Ammo.destroy(_ammoQuat);
-        _ammoTransform = null;
-        _ammoVec1 = null;
-        _ammoVec2 = null;
-        _ammoQuat = null;
     }
 
     /**
@@ -1017,32 +1001,6 @@ class RigidBodyComponent extends Component {
     }
 
     /**
-     * Writes an entity transform into an Ammo.btTransform but ignoring scale.
-     *
-     * @param {object} transform - The ammo transform to write the entity transform to.
-     * @private
-     */
-    _getEntityTransform(transform) {
-        const entity = this.entity;
-
-        const component = entity.collision;
-        if (component) {
-            const bodyPos = component.getShapePosition();
-            const bodyRot = component.getShapeRotation();
-            _ammoVec1.setValue(bodyPos.x, bodyPos.y, bodyPos.z);
-            _ammoQuat.setValue(bodyRot.x, bodyRot.y, bodyRot.z, bodyRot.w);
-        } else {
-            const pos = entity.getPosition();
-            const rot = entity.getRotation();
-            _ammoVec1.setValue(pos.x, pos.y, pos.z);
-            _ammoQuat.setValue(rot.x, rot.y, rot.z, rot.w);
-        }
-
-        transform.setOrigin(_ammoVec1);
-        transform.setRotation(_ammoQuat);
-    }
-
-    /**
      * Set the rigid body transform to be the same as the Entity transform. This must be called
      * after any Entity transformation functions (e.g. {@link Entity#setPosition}) are called in
      * order to update the rigid body to match the Entity.
@@ -1118,11 +1076,7 @@ class RigidBodyComponent extends Component {
      * @private
      */
     _updateKinematic() {
-        const motionState = this._body.getMotionState();
-        if (motionState) {
-            this._getEntityTransform(_ammoTransform);
-            motionState.setWorldTransform(_ammoTransform);
-        }
+        this.system._provider.updateKineamtic(this);
     }
 
     /**
